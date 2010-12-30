@@ -111,13 +111,13 @@ $activity.start_ruboto_activity "$index" do
         startManagingCursor(contacts_cursor);
 
         @adapter = SimpleCursorAdapter.new(self, 
-                R::layout::simple_list_item_1, 
+                R::layout::simple_list_item_2, 
                 contacts_cursor, 
                 [ContactsContract::Contacts::DISPLAY_NAME],
                 [AndroidIds::text1])
 
         @contact_spinner = spinner :prompt => 'Choose your contact'
-        @contact_spinner.setAdapter(@adapter).setBackgroundResource(R::color::black)
+        @contact_spinner.setAdapter(@adapter)
 
         toggle_button :width => :wrap_content, :textOff => 'Auto recall OFF', :textOn => 'Auto recall ON' 
         button :text => "CALL"

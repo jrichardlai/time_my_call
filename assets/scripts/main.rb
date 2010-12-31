@@ -53,20 +53,18 @@ def call(number)
   self.startActivity(intent)
 end
 
-def call_number_from_contact(contact)
-  count_phone_numbers = contact.getString(contact.getColumnIndex(ContactsContract::Contacts::HAS_PHONE_NUMBER)).to_i 
-  return nil unless count_phone_numbers > 0
+def call_number_from_contact(contact_cursor)
+  count_phone_numbers = contact_cursor.getString(contact_cursor.getColumnIndex(ContactsContract::Contacts::HAS_PHONE_NUMBER)).to_i
+  return nil if count_phone_numbers == 0
 
-  id = contact.getString(contact.getColumnIndex(ContactsContract::Contacts::LOOKUP_KEY))
+  id = contact_cursor.getString(contact_cursor.getColumnIndex(ContactsContract::Contacts::LOOKUP_KEY))
   phone_cursor = cr.query( ContactsContract::CommonDataKinds::Phone::CONTENT_URI, nil,
                             ContactsContract::Contacts::LOOKUP_KEY + " = ?", [id], nil)
-  if count_phone_numbers == 1
-    phone_cursor.moveToNext do
-      phone     = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::DATA))
-      phoneType = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::TYPE))
-      Log.i("Contact", "PHONE :" + phone)
-      Log.i("Contact", "PHONE TYPE :" + phoneType)
-    end
+
+  if phone_cursor.getCount == 1
+    phone_cursor.moveToFirst
+    phone     = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::DATA))
+    phoneType = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::TYPE))
     phone_cursor.close
     call(phone)
   else
@@ -84,8 +82,8 @@ def call_number_from_contact(contact)
   end
 end
 
-@alert_dialog_phones_select_listener = RubotoOnClickListener.new.handle_click do |v|
-  call(v)
+@alert_dialog_phones_select_listener = RubotoOnItemClickListener.new.handle_item_click do |i|
+  # call_number(i)
   Log.i("Click", "rubuto has been clicked")
 end
 
@@ -176,9 +174,9 @@ $activity.start_ruboto_activity "$index" do
   handle_click do |view|
     case view.getText
     when "CALL":
-      contact = @contact_spinner.getSelectedItem();
-      if contact
-        call_number_from_contact(contact)
+      contact_cursor = @contact_spinner.getSelectedItem
+      if contact_cursor
+        call_number_from_contact(contact_cursor)
       end
     end
   end

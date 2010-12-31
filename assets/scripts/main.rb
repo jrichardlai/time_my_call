@@ -4,7 +4,6 @@ require 'custom_methods'
 confirm_ruboto_version(6, false)
 
 java_import "android.provider.ContactsContract"
-java_import "android.provider.Contacts"
 java_import "android.content.ContentResolver"
 java_import "android.content.Context"
 java_import "android.database.Cursor"
@@ -18,6 +17,9 @@ java_import "android.view.KeyEvent"
 java_import "android.text.util.Linkify"
 java_import "android.app.AlertDialog"
 java_import "android.content.DialogInterface"
+java_import "android.content.Intent"
+java_import "android.net.Uri"
+java_import "android.app.AlertDialog"
 
 ruboto_import "org.ruboto.callbacks.RubotoOnTabChangeListener"
 ruboto_import "org.ruboto.callbacks.RubotoOnKeyListener"
@@ -35,16 +37,56 @@ def contacts_list
   @contacts
 end
 
+def cr
+  @cr ||= getContentResolver
+end
+
 def contacts_cursor
-  @cr              ||= getContentResolver;
-  @contacts_cursor ||= @cr.query ContactsContract::Contacts::CONTENT_URI, nil, nil, nil, nil
+  @contacts_cursor ||= cr.query ContactsContract::Contacts::CONTENT_URI, nil, nil, nil, nil
   @contacts_cursor
 end
 
-
 #call the contact
-def call
-  
+def call(number)
+  intent = Intent.new(Intent::ACTION_CALL)
+  intent.setData(Uri.parse("tel:#{number}"))
+  self.startActivity(intent)
+end
+
+def call_number_from_contact(contact)
+  count_phone_numbers = contact.getString(contact.getColumnIndex(ContactsContract::Contacts::HAS_PHONE_NUMBER)).to_i 
+  return nil unless count_phone_numbers > 0
+
+  id = contact.getString(contact.getColumnIndex(ContactsContract::Contacts::LOOKUP_KEY))
+  phone_cursor = cr.query( ContactsContract::CommonDataKinds::Phone::CONTENT_URI, nil,
+                            ContactsContract::Contacts::LOOKUP_KEY + " = ?", [id], nil)
+  if count_phone_numbers == 1
+    phone_cursor.moveToNext do
+      phone     = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::DATA))
+      phoneType = phone_cursor.getString(phone_cursor.getColumnIndex(ContactsContract::CommonDataKinds::Phone::TYPE))
+      Log.i("Contact", "PHONE :" + phone)
+      Log.i("Contact", "PHONE TYPE :" + phoneType)
+    end
+    phone_cursor.close
+    call(phone)
+  else
+    adapter = SimpleCursorAdapter.new(self, 
+            R::layout::simple_list_item_1, 
+            phone_cursor, 
+            [ContactsContract::CommonDataKinds::Phone::DATA, ContactsContract::CommonDataKinds::Phone::TYPE],
+            [AndroidIds::text1])
+
+    AlertDialog::Builder.new(self).
+      setTitle("Phones list").
+      setAdapter(adapter, @alert_dialog_phones_select_listener).
+      create.
+      show
+  end
+end
+
+@alert_dialog_phones_select_listener = RubotoOnClickListener.new.handle_click do |v|
+  call(v)
+  Log.i("Click", "rubuto has been clicked")
 end
 
 $activity.start_ruboto_activity "$index" do
@@ -111,7 +153,7 @@ $activity.start_ruboto_activity "$index" do
         startManagingCursor(contacts_cursor);
 
         @adapter = SimpleCursorAdapter.new(self, 
-                R::layout::simple_list_item_2, 
+                R::layout::simple_list_item_1, 
                 contacts_cursor, 
                 [ContactsContract::Contacts::DISPLAY_NAME],
                 [AndroidIds::text1])
@@ -133,7 +175,11 @@ $activity.start_ruboto_activity "$index" do
 
   handle_click do |view|
     case view.getText
-    when "CALL" : call
+    when "CALL":
+      contact = @contact_spinner.getSelectedItem();
+      if contact
+        call_number_from_contact(contact)
+      end
     end
   end
 
